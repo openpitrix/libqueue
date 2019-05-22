@@ -3,6 +3,7 @@ package lib
 import (
 	"errors"
 	"github.com/go-redis/redis"
+	"strconv"
 )
 
 type RedisClient struct {
@@ -14,7 +15,23 @@ type RedisQueue struct {
 	topic  string
 }
 
-func (client *RedisClient) NewQueue(topic string) *RedisQueue {
+func  (q *RedisQueue)Connect(connStrs []string) (*RedisClient, error) {
+
+	addr:=connStrs[0]
+	password:=connStrs[1]
+	poolSize, _ := strconv.Atoi(connStrs[2])
+
+	cli := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: password,
+		DB:       0,
+		PoolSize: poolSize,
+	})
+	return &RedisClient{cli}, nil
+}
+
+
+func (q *RedisQueue) NewQueue(client *RedisClient,topic string) *RedisQueue {
 	return &RedisQueue{client.Client, topic}
 }
 
@@ -38,12 +55,3 @@ func (q *RedisQueue) Dequeue() (string, error) {
 	return val[1], nil
 }
 
-func Connect(addr string, password string, poolSize int) (*RedisClient, error) {
-	cli := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       0,
-		PoolSize: poolSize,
-	})
-	return &RedisClient{cli}, nil
-}

@@ -9,7 +9,7 @@ type QCQueue interface {
 	NewQueue(topic string) *QCQueue
 	Enqueue(val string) error
 	Dequeue() (string, error)
-	Connect(endpoints []string, prefix string) (*QCClient, error)
+	Connect(endpoints []string) (*QCClient, error)
 }
 
 type QCClient interface {
