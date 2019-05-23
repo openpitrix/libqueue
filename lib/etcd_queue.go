@@ -4,20 +4,18 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/namespace"
 	"github.com/coreos/etcd/contrib/recipes"
+
 	"time"
 )
 
-type EtcdClient struct {
-	*clientv3.Client
-}
-
 type EtcdQueue struct {
-	*recipe.Queue
+	*clientv3.Client
+	topic string
 }
 
-func (q *EtcdQueue)Connect(endpoints []string) (*EtcdClient, error) {
+func (q *EtcdQueue) Connect(connStrs []string) (*clientv3.Client, error) {
 	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   endpoints,
+		Endpoints:   connStrs,
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
@@ -26,20 +24,20 @@ func (q *EtcdQueue)Connect(endpoints []string) (*EtcdClient, error) {
 	cli.KV = namespace.NewKV(cli.KV, "")
 	cli.Watcher = namespace.NewWatcher(cli.Watcher, "")
 	cli.Lease = namespace.NewLease(cli.Lease, "")
-	return &EtcdClient{cli}, err
+	return cli, nil
 }
 
-
-func (q *EtcdQueue) NewQueue(client *EtcdClient,topic string) *EtcdQueue {
-	return &EtcdQueue{recipe.NewQueue(client.Client, topic)}
+func (q *EtcdQueue) NewQueue(client *clientv3.Client, topic string) *EtcdQueue {
+	return &EtcdQueue{client, topic}
 }
 
-func (q *EtcdQueue) Enqueue(val string) error {
-	return q.Queue.Enqueue(val)
+func (q *EtcdQueue) Enqueue(cli *clientv3.Client, val string) error {
+	etcdQueue := recipe.NewQueue(cli, q.topic)
+	return etcdQueue.Enqueue(val)
 }
 
-// Dequeue returns Enqueue()'d elements in FIFO order. If the
-// queue is empty, Dequeue blocks until elements are available.
-func (q *EtcdQueue) Dequeue() (string, error) {
-	return q.Queue.Dequeue()
+// Dequeue returns Enqueue()'d elements in FIFO order. If the queue is empty, Dequeue blocks until elements are available.
+func (q *EtcdQueue) Dequeue(cli *clientv3.Client) (string, error) {
+	etcdQueue := recipe.NewQueue(cli, q.topic)
+	return etcdQueue.Dequeue()
 }
