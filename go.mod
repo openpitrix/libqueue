@@ -1,4 +1,4 @@
-module github.com/huojiao2006/libqueue
+module openpitrix.io/libqueue
 
 go 1.12
 

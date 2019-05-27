@@ -2,20 +2,26 @@
 // Use of this source code is governed by a Apache license
 // that can be found in the LICENSE file.
 
-package lib
+package queue
 
 import (
 	"fmt"
-	"github.com/coreos/etcd/version"
 	"math/rand"
 	"runtime"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/coreos/etcd/version"
+
+	lib "openpitrix.io/libqueue"
+	e "openpitrix.io/libqueue/etcdqueue"
+	r "openpitrix.io/libqueue/redisqueue"
 )
 
-func enqueue(queue *QCQueue, cli QCClient) int {
-	err := queue.Enqueue(cli, fmt.Sprintf("%d", rand.Intn(10000)))
+func enqueue(topic lib.Topic, cli lib.QueueClient) int {
+	val := fmt.Sprintf("%d", rand.Intn(10000))
+	err := topic.Enqueue(val)
 	//logger.Infof(nil, "enqueue  queue.topic=%s", queue.topic)
 	if err != nil {
 		//logger.Infof(nil, "enqueue error=%+v", err)
@@ -24,8 +30,8 @@ func enqueue(queue *QCQueue, cli QCClient) int {
 	return 0
 }
 
-func dequeue(queue *QCQueue, cli QCClient) int {
-	_, err := queue.Dequeue(cli)
+func dequeue(topic lib.Topic, cli lib.QueueClient) int {
+	_, err := topic.Dequeue()
 	//logger.Infof(nil, "enqueue  queue.topic=%s", queue.topic)
 	if err != nil {
 		return 1
@@ -42,26 +48,26 @@ var successTaskCnt = 0
 var errorTaskCnt = 0
 var ch = make(chan int, (TestingTasksCnt+2)*2)
 
-func enqueueWorker(queue *QCQueue, cli QCClient) {
+func enqueueWorker(topic *lib.Topic, cli lib.QueueClient) {
 	timer := time.NewTicker(time.Millisecond * 1000)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-timer.C:
-			ch <- enqueue(queue, cli)
+			ch <- enqueue(*topic, cli)
 		}
 	}
 }
 
-func dequeueWorker(queue *QCQueue, cli QCClient) {
+func dequeueWorker(topic *lib.Topic, cli lib.QueueClient) {
 	timer := time.NewTicker(time.Millisecond * 1000)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-timer.C:
-			ch <- dequeue(queue, cli)
+			ch <- dequeue(*topic, cli)
 		}
 	}
 }
@@ -92,15 +98,13 @@ func calc() {
 func TestEnQueuePerf4Etcd(t *testing.T) {
 	fmt.Printf("ETCD Version %v\n", version.Version)
 
-	connStrs := []string{"192.168.0.6:12379"}
-	cli, _ := new(EtcdQueue).Connect(connStrs)
+	connStrs := "192.168.0.6:12379"
+	Cli, _ := e.New(connStrs)
 
 	for i := 0; i < TestingTasksCnt; i++ {
-		q := new(QCQueue)
-		q.topic = "notification_" + strconv.Itoa(int(i))
-		q.queueType = "etcd"
-		q.client = cli
-		go enqueueWorker(q, cli)
+		topicName := "notification_" + strconv.Itoa(int(i))
+		topic, _ := Cli.GetTopic(topicName)
+		go enqueueWorker(&topic, Cli)
 	}
 
 	go summarize()
@@ -113,18 +117,14 @@ func TestEnQueuePerf4Etcd(t *testing.T) {
 
 func TestDeQueuePerf4Etcd(t *testing.T) {
 	fmt.Printf("ETCD Version %v\n", version.Version)
-
-	connStrs := []string{"192.168.0.6:12379"}
-	cli, _ := new(EtcdQueue).Connect(connStrs)
+	connStrs := "192.168.0.6:12379"
+	Cli, _ := e.New(connStrs)
 
 	for i := 0; i < TestingTasksCnt; i++ {
-		q := new(QCQueue)
-		q.topic = "notification_" + strconv.Itoa(int(i))
-		q.queueType = "etcd"
-		q.client = cli
-		go dequeueWorker(q, cli)
+		topicName := "notification_" + strconv.Itoa(int(i))
+		topic, _ := Cli.GetTopic(topicName)
+		go dequeueWorker(&topic, Cli)
 	}
-
 	go summarize()
 	go calc()
 
@@ -134,16 +134,13 @@ func TestDeQueuePerf4Etcd(t *testing.T) {
 }
 
 func TestEnQueuePerf4Redis(t *testing.T) {
-
-	connStr := []string{"192.168.0.4:6379", "", "2000"}
-	cli, _ := new(RedisQueue).Connect(connStr)
+	connStrs := "redis://192.168.0.4:6379"
+	Cli, _ := r.New(connStrs)
 
 	for i := 0; i < TestingTasksCnt; i++ {
-		q := new(QCQueue)
-		q.topic = "notification_" + strconv.Itoa(int(i))
-		q.queueType = "redis"
-		q.client = cli
-		go enqueueWorker(q, cli)
+		topicName := "notification_" + strconv.Itoa(int(i))
+		topic, _ := Cli.GetTopic(topicName)
+		go enqueueWorker(&topic, Cli)
 	}
 
 	go summarize()
@@ -155,16 +152,13 @@ func TestEnQueuePerf4Redis(t *testing.T) {
 }
 
 func TestDeQueuePerf4Redis(t *testing.T) {
-
-	connStr := []string{"192.168.0.4:6379", "", "2000"}
-	cli, _ := new(RedisQueue).Connect(connStr)
+	connStrs := "redis://192.168.0.4:6379"
+	Cli, _ := r.New(connStrs)
 
 	for i := 0; i < TestingTasksCnt; i++ {
-		q := new(QCQueue)
-		q.topic = "notification_" + strconv.Itoa(int(i))
-		q.queueType = "redis"
-		q.client = cli
-		go dequeueWorker(q, cli)
+		topicName := "notification_" + strconv.Itoa(int(i))
+		topic, _ := Cli.GetTopic(topicName)
+		go dequeueWorker(&topic, Cli)
 	}
 
 	go summarize()
