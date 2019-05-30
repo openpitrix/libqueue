@@ -1,19 +1,19 @@
-package queue_test
+package queue
 
 import (
 	"fmt"
 	"testing"
 
 	"openpitrix.io/logger"
-
-	e "openpitrix.io/libqueue/etcdqueue"
-	r "openpitrix.io/libqueue/redisqueue"
 )
 
 func TestQueue4Etcd(t *testing.T) {
-	connStrs := "192.168.0.6:12379"
-	Cli, _ := e.New(connStrs)
-	topic, _ := Cli.GetTopic("test")
+	connStr := "192.168.0.6:12379"
+	var configMap map[string]interface{}
+	configMap = make(map[string]interface{})
+	configMap["connStr"] = connStr
+	cli, _ := New("etcd", configMap)
+	topic, _ := cli.SetTopic("test")
 
 	topic.Enqueue("sss")
 	topic.Dequeue()
@@ -40,10 +40,20 @@ func TestQueue4Etcd(t *testing.T) {
 }
 
 func TestInterface4Redis(t *testing.T) {
-	connStrs := "redis://192.168.0.4:6379"
-	Cli, _ := r.New(connStrs)
-	topic, _ := Cli.GetTopic("test")
-
+	connStr := "redis://192.168.0.4:6379"
+	var configMap map[string]interface{}
+	configMap = make(map[string]interface{})
+	configMap["connStr"] = connStr
+	configMap["PoolSize"] = 2000
+	configMap["MinIdleConns"] = 1
+	cli, err := New("redis", configMap)
+	if err != nil {
+		logger.Errorf(nil, "err:=[%+v]", err)
+	}
+	topic, err := cli.SetTopic("test")
+	if err != nil {
+		logger.Errorf(nil, "err:=[%+v]", err)
+	}
 	topic.Enqueue("sss")
 	topic.Dequeue()
 
