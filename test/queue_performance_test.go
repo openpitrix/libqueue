@@ -2,7 +2,7 @@
 // Use of this source code is governed by a Apache license
 // that can be found in the LICENSE file.
 
-package queue
+package test
 
 import (
 	"fmt"
@@ -14,13 +14,16 @@ import (
 
 	"github.com/coreos/etcd/version"
 
-	lib "openpitrix.io/libqueue"
+	i "openpitrix.io/libqueue"
+	c "openpitrix.io/libqueue/client"
+	etcdq "openpitrix.io/libqueue/etcd"
+	redisq "openpitrix.io/libqueue/redis"
 )
 
-func enqueue(topic lib.Topic, cli lib.QueueClient) int {
+func enqueue(queue i.IQueue) int {
 	val := fmt.Sprintf("%d", rand.Intn(10000))
-	err := topic.Enqueue(val)
-	//logger.Infof(nil, "enqueue  queue.topic=%s", queue.topic)
+	err := queue.Enqueue(val)
+	//logger.Infof(nil, "enqueue  client.topic=%s", client.topic)
 	if err != nil {
 		//logger.Infof(nil, "enqueue error=%+v", err)
 		return 1
@@ -28,9 +31,9 @@ func enqueue(topic lib.Topic, cli lib.QueueClient) int {
 	return 0
 }
 
-func dequeue(topic lib.Topic, cli lib.QueueClient) int {
-	_, err := topic.Dequeue()
-	//logger.Infof(nil, "enqueue  queue.topic=%s", queue.topic)
+func dequeue(queue i.IQueue) int {
+	_, err := queue.Dequeue()
+	//logger.Infof(nil, "enqueue  client.topic=%s", client.topic)
 	if err != nil {
 		return 1
 	}
@@ -46,26 +49,26 @@ var successTaskCnt = 0
 var errorTaskCnt = 0
 var ch = make(chan int, (TestingTasksCnt+2)*2)
 
-func enqueueWorker(topic *lib.Topic, cli lib.QueueClient) {
+func enqueueWorker(queue *i.IQueue) {
 	timer := time.NewTicker(time.Millisecond * 1000)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-timer.C:
-			ch <- enqueue(*topic, cli)
+			ch <- enqueue(*queue)
 		}
 	}
 }
 
-func dequeueWorker(topic *lib.Topic, cli lib.QueueClient) {
+func dequeueWorker(queue *i.IQueue) {
 	timer := time.NewTicker(time.Millisecond * 1000)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-timer.C:
-			ch <- dequeue(*topic, cli)
+			ch <- dequeue(*queue)
 		}
 	}
 }
@@ -95,16 +98,22 @@ func calc() {
 
 func TestEnQueuePerf4Etcd(t *testing.T) {
 	fmt.Printf("ETCD Version %v\n", version.Version)
-	connStr := "192.168.0.6:12379"
-	var configMap map[string]interface{}
-	configMap = make(map[string]interface{})
-	configMap["connStr"] = connStr
-	cli, _ := New("etcd", configMap)
+
+	pubsubConnStr := "192.168.0.6:12379"
+	pubsubType := "etcd"
+	pubsubConfigMap := map[string]interface{}{
+		"connStr": pubsubConnStr,
+	}
+	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
+	etcdQueue := etcdq.EtcdQueue{}
+	var iqueue i.IQueue
+	iqueue = &etcdQueue
+	iqueue.SetClient(&iClient)
 
 	for i := 0; i < TestingTasksCnt; i++ {
 		topicName := "notification_" + strconv.Itoa(int(i))
-		topic, _ := cli.SetTopic(topicName)
-		go enqueueWorker(&topic, cli)
+		iqueue.SetTopic(topicName)
+		go enqueueWorker(&iqueue)
 	}
 
 	go summarize()
@@ -117,16 +126,22 @@ func TestEnQueuePerf4Etcd(t *testing.T) {
 
 func TestDeQueuePerf4Etcd(t *testing.T) {
 	fmt.Printf("ETCD Version %v\n", version.Version)
-	connStr := "192.168.0.6:12379"
-	var configMap map[string]interface{}
-	configMap = make(map[string]interface{})
-	configMap["connStr"] = connStr
-	cli, _ := New("etcd", configMap)
+
+	pubsubConnStr := "192.168.0.6:12379"
+	pubsubType := "etcd"
+	pubsubConfigMap := map[string]interface{}{
+		"connStr": pubsubConnStr,
+	}
+	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
+	etcdQueue := etcdq.EtcdQueue{}
+	var iqueue i.IQueue
+	iqueue = &etcdQueue
+	iqueue.SetClient(&iClient)
 
 	for i := 0; i < TestingTasksCnt; i++ {
 		topicName := "notification_" + strconv.Itoa(int(i))
-		topic, _ := cli.SetTopic(topicName)
-		go dequeueWorker(&topic, cli)
+		iqueue.SetTopic(topicName)
+		go dequeueWorker(&iqueue)
 	}
 	go summarize()
 	go calc()
@@ -137,16 +152,20 @@ func TestDeQueuePerf4Etcd(t *testing.T) {
 }
 
 func TestEnQueuePerf4Redis(t *testing.T) {
-	connStr := "redis://192.168.0.4:6379"
-	var configMap map[string]interface{}
-	configMap = make(map[string]interface{})
-	configMap["connStr"] = connStr
-	cli, _ := New("redis", configMap)
+	pubsubConnStr := "redis://192.168.0.6:6379"
+	pubsubConfigMap := map[string]interface{}{
+		"connStr": pubsubConnStr}
+	iClient, _ := c.NewIClient("redis", pubsubConfigMap)
+
+	redisQueue := redisq.RedisQueue{}
+	var iqueue i.IQueue
+	iqueue = &redisQueue
+	iqueue.SetClient(&iClient)
 
 	for i := 0; i < TestingTasksCnt; i++ {
 		topicName := "notification_" + strconv.Itoa(int(i))
-		topic, _ := cli.SetTopic(topicName)
-		go enqueueWorker(&topic, cli)
+		iqueue.SetTopic(topicName)
+		go enqueueWorker(&iqueue)
 	}
 
 	go summarize()
@@ -158,15 +177,20 @@ func TestEnQueuePerf4Redis(t *testing.T) {
 }
 
 func TestDeQueuePerf4Redis(t *testing.T) {
-	connStr := "redis://192.168.0.4:6379"
-	var configMap map[string]interface{}
-	configMap = make(map[string]interface{})
-	configMap["connStr"] = connStr
-	cli, _ := New("redis", configMap)
+	pubsubConnStr := "redis://192.168.0.6:6379"
+	pubsubConfigMap := map[string]interface{}{
+		"connStr": pubsubConnStr}
+	iClient, _ := c.NewIClient("redis", pubsubConfigMap)
+
+	redisQueue := redisq.RedisQueue{}
+	var iqueue i.IQueue
+	iqueue = &redisQueue
+	iqueue.SetClient(&iClient)
+
 	for i := 0; i < TestingTasksCnt; i++ {
 		topicName := "notification_" + strconv.Itoa(int(i))
-		topic, _ := cli.SetTopic(topicName)
-		go dequeueWorker(&topic, cli)
+		iqueue.SetTopic(topicName)
+		go dequeueWorker(&iqueue)
 	}
 
 	go summarize()
