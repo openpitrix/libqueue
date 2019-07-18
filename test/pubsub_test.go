@@ -10,10 +10,7 @@ import (
 
 	"openpitrix.io/logger"
 
-	i "openpitrix.io/libqueue"
-	c "openpitrix.io/libqueue/client"
-	etcdps "openpitrix.io/libqueue/etcd"
-	redisps "openpitrix.io/libqueue/redis"
+	q "openpitrix.io/libqueue/queue"
 )
 
 func TestPublish4Redis(t *testing.T) {
@@ -21,12 +18,9 @@ func TestPublish4Redis(t *testing.T) {
 	pubsubType := "redis"
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	ipubsub, _ := q.NewIPubSub(pubsubType, &iClient)
 
-	redisPubSub := redisps.RedisPubSub{}
-	var ipubsub i.IPubSub
-	ipubsub = &redisPubSub
-	ipubsub.SetClient(&iClient)
 	ipubsub.SetChannel("channel1")
 	ipubsub.Publish("data1")
 
@@ -38,12 +32,8 @@ func TestReceiveMessage4Redis(t *testing.T) {
 	pubsubType := "redis"
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
-
-	redisPubSub := redisps.RedisPubSub{}
-	var ipubsub i.IPubSub
-	ipubsub = &redisPubSub
-	ipubsub.SetClient(&iClient)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	ipubsub, _ := q.NewIPubSub(pubsubType, &iClient)
 	ipubsub.SetChannel("channel1")
 
 	msgChan := ipubsub.ReceiveMessage()
@@ -74,12 +64,8 @@ func TestPublish4Etcd(t *testing.T) {
 	pubsubType := "etcd"
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
-
-	etcdPubSub := etcdps.EtcdPubSub{}
-	var ipubsub i.IPubSub
-	ipubsub = &etcdPubSub
-	ipubsub.SetClient(&iClient)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	ipubsub, _ := q.NewIPubSub(pubsubType, &iClient)
 	ipubsub.SetChannel("channel1")
 
 	ipubsub.Publish("data1")
@@ -92,12 +78,8 @@ func TestReceiveMessage4Etcd(t *testing.T) {
 	pubsubType := "etcd"
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
-
-	etcdPubSub := etcdps.EtcdPubSub{}
-	var ipubsub i.IPubSub
-	ipubsub = &etcdPubSub
-	ipubsub.SetClient(&iClient)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	ipubsub, _ := q.NewIPubSub(pubsubType, &iClient)
 	ipubsub.SetChannel("channel1")
 
 	msgChan := ipubsub.ReceiveMessage()

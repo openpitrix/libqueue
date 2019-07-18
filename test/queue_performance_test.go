@@ -15,15 +15,13 @@ import (
 	"github.com/coreos/etcd/version"
 
 	i "openpitrix.io/libqueue"
-	c "openpitrix.io/libqueue/client"
-	etcdq "openpitrix.io/libqueue/etcd"
-	redisq "openpitrix.io/libqueue/redis"
+	q "openpitrix.io/libqueue/queue"
 )
 
 func enqueue(queue i.IQueue) int {
 	val := fmt.Sprintf("%d", rand.Intn(10000))
 	err := queue.Enqueue(val)
-	//logger.Infof(nil, "enqueue  client.topic=%s", client.topic)
+	//logger.Infof(nil, "enqueue  queue.topic=%s", queue.topic)
 	if err != nil {
 		//logger.Infof(nil, "enqueue error=%+v", err)
 		return 1
@@ -33,7 +31,7 @@ func enqueue(queue i.IQueue) int {
 
 func dequeue(queue i.IQueue) int {
 	_, err := queue.Dequeue()
-	//logger.Infof(nil, "enqueue  client.topic=%s", client.topic)
+	//logger.Infof(nil, "enqueue  queue.topic=%s", queue.topic)
 	if err != nil {
 		return 1
 	}
@@ -104,11 +102,8 @@ func TestEnQueuePerf4Etcd(t *testing.T) {
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr,
 	}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
-	etcdQueue := etcdq.EtcdQueue{}
-	var iqueue i.IQueue
-	iqueue = &etcdQueue
-	iqueue.SetClient(&iClient)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	iqueue, _ := q.NewIQueue(pubsubType, &iClient)
 
 	for i := 0; i < TestingTasksCnt; i++ {
 		topicName := "notification_" + strconv.Itoa(int(i))
@@ -132,11 +127,8 @@ func TestDeQueuePerf4Etcd(t *testing.T) {
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr,
 	}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
-	etcdQueue := etcdq.EtcdQueue{}
-	var iqueue i.IQueue
-	iqueue = &etcdQueue
-	iqueue.SetClient(&iClient)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	iqueue, _ := q.NewIQueue(pubsubType, &iClient)
 
 	for i := 0; i < TestingTasksCnt; i++ {
 		topicName := "notification_" + strconv.Itoa(int(i))
@@ -155,12 +147,9 @@ func TestEnQueuePerf4Redis(t *testing.T) {
 	pubsubConnStr := "redis://192.168.0.6:6379"
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr}
-	iClient, _ := c.NewIClient("redis", pubsubConfigMap)
-
-	redisQueue := redisq.RedisQueue{}
-	var iqueue i.IQueue
-	iqueue = &redisQueue
-	iqueue.SetClient(&iClient)
+	pubsubType := "redis"
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	iqueue, _ := q.NewIQueue(pubsubType, &iClient)
 
 	for i := 0; i < TestingTasksCnt; i++ {
 		topicName := "notification_" + strconv.Itoa(int(i))
@@ -180,12 +169,9 @@ func TestDeQueuePerf4Redis(t *testing.T) {
 	pubsubConnStr := "redis://192.168.0.6:6379"
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr}
-	iClient, _ := c.NewIClient("redis", pubsubConfigMap)
-
-	redisQueue := redisq.RedisQueue{}
-	var iqueue i.IQueue
-	iqueue = &redisQueue
-	iqueue.SetClient(&iClient)
+	pubsubType := "redis"
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	iqueue, _ := q.NewIQueue(pubsubType, &iClient)
 
 	for i := 0; i < TestingTasksCnt; i++ {
 		topicName := "notification_" + strconv.Itoa(int(i))

@@ -9,10 +9,7 @@ import (
 
 	"openpitrix.io/logger"
 
-	i "openpitrix.io/libqueue"
-	c "openpitrix.io/libqueue/client"
-	etcdq "openpitrix.io/libqueue/etcd"
-	redisq "openpitrix.io/libqueue/redis"
+	q "openpitrix.io/libqueue/queue"
 )
 
 func TestEnqueue4Redis(t *testing.T) {
@@ -20,27 +17,22 @@ func TestEnqueue4Redis(t *testing.T) {
 	pubsubType := "redis"
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
 
-	redisQueue := redisq.RedisQueue{}
-	var iqueue i.IQueue
-	iqueue = &redisQueue
-	iqueue.SetClient(&iClient)
+	iqueue, _ := q.NewIQueue(pubsubType, &iClient)
 	iqueue.SetTopic("test_topic1")
 	iqueue.Enqueue("ssss")
 }
 
 func TestDequeue4Redis(t *testing.T) {
 	pubsubConnStr := "redis://192.168.0.6:6379"
+	pubsubType := "redis"
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr}
 
-	iClient, _ := c.NewIClient("redis", pubsubConfigMap)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	iqueue, _ := q.NewIQueue(pubsubType, &iClient)
 
-	redisQueue := redisq.RedisQueue{}
-	var iqueue i.IQueue
-	iqueue = &redisQueue
-	iqueue.SetClient(&iClient)
 	iqueue.SetTopic("test_topic1")
 	val, err := iqueue.Dequeue()
 	if err != nil {
@@ -56,12 +48,8 @@ func TestEnqueue4Etcd(t *testing.T) {
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr,
 	}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
-
-	etcdQueue := etcdq.EtcdQueue{}
-	var iqueue i.IQueue
-	iqueue = &etcdQueue
-	iqueue.SetClient(&iClient)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	iqueue, _ := q.NewIQueue(pubsubType, &iClient)
 	iqueue.SetTopic("test_topic1")
 	iqueue.Enqueue("ssss")
 }
@@ -72,12 +60,8 @@ func TestDequeue4Etcd(t *testing.T) {
 	pubsubConfigMap := map[string]interface{}{
 		"connStr": pubsubConnStr,
 	}
-	iClient, _ := c.NewIClient(pubsubType, pubsubConfigMap)
-
-	etcdQueue := etcdq.EtcdQueue{}
-	var iqueue i.IQueue
-	iqueue = &etcdQueue
-	iqueue.SetClient(&iClient)
+	iClient, _ := q.NewIClient(pubsubType, pubsubConfigMap)
+	iqueue, _ := q.NewIQueue(pubsubType, &iClient)
 	iqueue.SetTopic("test_topic1")
 
 	val, err := iqueue.Dequeue()

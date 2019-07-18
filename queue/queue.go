@@ -2,7 +2,7 @@
 // Use of this source code is governed by a Apache license
 // that can be found in the LICENSE file.
 
-package client
+package queue
 
 import (
 	"encoding/json"
@@ -17,13 +17,49 @@ import (
 	"openpitrix.io/logger"
 
 	i "openpitrix.io/libqueue"
-	etcdq "openpitrix.io/libqueue/etcd"
-	redisq "openpitrix.io/libqueue/redis"
+	qetcd "openpitrix.io/libqueue/etcd"
+	qredis "openpitrix.io/libqueue/redis"
 )
+
+func NewIQueue(queueType string, qclient *i.IClient) (i.IQueue, error) {
+	var iqueue i.IQueue
+	switch queueType {
+	case "etcd":
+		etcdQueue := qetcd.EtcdQueue{}
+		iqueue = &etcdQueue
+		iqueue.SetClient(qclient)
+		return iqueue, nil
+	case "redis":
+		redisQueue := qredis.RedisQueue{}
+		iqueue = &redisQueue
+		iqueue.SetClient(qclient)
+		return iqueue, nil
+	default:
+		return nil, fmt.Errorf("unsupported Queue Type [%s]", queueType)
+	}
+}
+
+func NewIPubSub(pubsubType string, qclient *i.IClient) (i.IPubSub, error) {
+	var ipubsub i.IPubSub
+	switch pubsubType {
+	case "etcd":
+		etcdPubSub := qetcd.EtcdPubSub{}
+		ipubsub = &etcdPubSub
+		ipubsub.SetClient(qclient)
+		return ipubsub, nil
+	case "redis":
+		redisPubSub := qredis.RedisPubSub{}
+		ipubsub = &redisPubSub
+		ipubsub.SetClient(qclient)
+		return ipubsub, nil
+	default:
+		return nil, fmt.Errorf("unsupported Queue Type [%s]", pubsubType)
+	}
+}
 
 func NewIClient(pubsubType string, configMap map[string]interface{}) (i.IClient, error) {
 	if configMap == nil {
-		return nil, fmt.Errorf("not provide client configuration info.")
+		return nil, fmt.Errorf("not provide queue configuration info.")
 	}
 
 	switch pubsubType {
@@ -42,13 +78,13 @@ func NewIClient(pubsubType string, configMap map[string]interface{}) (i.IClient,
 			DialTimeout: dialTimeout,
 		})
 		if err != nil {
-			logger.Errorf(nil, "new etcd client failed, err=%+v", err)
+			logger.Errorf(nil, "new etcd queue failed, err=%+v", err)
 			return nil, err
 		}
 		cli.KV = namespace.NewKV(cli.KV, "")
 		cli.Watcher = namespace.NewWatcher(cli.Watcher, "")
 		cli.Lease = namespace.NewLease(cli.Lease, "")
-		return etcdq.EtcdClient{*cli}, err
+		return qetcd.EtcdClient{*cli}, err
 
 	case "redis":
 		cfg := loadConf4Redis(configMap)
@@ -77,7 +113,7 @@ func NewIClient(pubsubType string, configMap map[string]interface{}) (i.IClient,
 			return nil, err
 		}
 
-		return redisq.RedisClient{*cli}, nil
+		return qredis.RedisClient{*cli}, nil
 	default:
 		return nil, fmt.Errorf("unsupported Queue Type [%s]", pubsubType)
 	}
